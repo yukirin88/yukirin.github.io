@@ -145,21 +145,13 @@ def index():
         return redirect(url_for('login'))
     with get_db_connection() as conn:
         records = conn.execute(
-            'SELECT id, action, timestamp, memo, likes_count FROM records WHERE user_id = ? AND is_deleted = 0 ORDER BY timestamp DESC',
+            'SELECT id, action, datetime(timestamp, "localtime") as timestamp, memo, likes_count FROM records WHERE user_id = ? AND is_deleted = 0 ORDER BY timestamp DESC',
             (session['user_id'],)
         ).fetchall()
-
-        # タイムゾーンを考慮して表示するために、各レコードの時刻に9時間足す
+        # タイムゾーンを考慮して表示（9時間を足す）
         for record in records:
-            # タイムスタンプがNoneでないことを確認
-            if record['timestamp']:
-                # タイムスタンプをdatetimeオブジェクトに変換してから9時間足す
-                timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
-                timestamp_utc = pytz.utc.localize(timestamp)
-                timestamp_jst = timestamp_utc.astimezone(pytz.timezone('Asia/Tokyo'))
-
-                record = record._replace(timestamp=timestamp_jst.strftime('%Y-%m-%d %H:%M:%S'))
-
+            record = dict(record)
+            record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S') + timedelta(hours=9)
     return render_template('index.html', records=records)
 
 @app.route('/like//', methods=['POST'])
@@ -367,7 +359,6 @@ def record():
 
 @app.route('/day_records/<date>')
 def day_records(date):
-    # 関数の内容
     if 'user_id' not in session:
         return redirect(url_for('login'))
     is_admin = session.get('is_admin', False)
@@ -375,7 +366,6 @@ def day_records(date):
     cursor = conn.cursor()
     try:
         if is_admin:
-            # 管理者の場合、全ての記録（削除されたものも含む）を取得
             cursor.execute('''
                 SELECT action, timestamp, memo, username, is_deleted
                 FROM records
@@ -383,7 +373,6 @@ def day_records(date):
                 ORDER BY timestamp ASC
             ''', (date,))
         else:
-            # 一般ユーザーの場合、自分の削除されていない記録のみを取得
             cursor.execute('''
                 SELECT action, timestamp, memo, username
                 FROM records
@@ -391,23 +380,21 @@ def day_records(date):
                 ORDER BY timestamp ASC
             ''', (session['user_id'], date))
         records = cursor.fetchall()
-        # タイムゾーンを考慮して表示
-        for record in records:
-            # タイムスタンプがNoneでないことを確認
-            if record['timestamp']:
-                # タイムスタンプをdatetimeオブジェクトに変換してから9時間足す
-                timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
-                timestamp_utc = pytz.utc.localize(timestamp)
-                timestamp_jst = timestamp_utc.astimezone(pytz.timezone('Asia/Tokyo'))
 
-                record = record._replace(timestamp=timestamp_jst.strftime('%Y-%m-%d %H:%M:%S'))
-
+        # タイムスタンプをdatetimeオブジェクトに変換（9時間足す）
+        records = [{
+            'action': record['action'],
+            'timestamp': datetime.fromisoformat(record['timestamp'].replace(' ', 'T')) + timedelta(hours=9), # 9時間足す
+            'memo': record['memo'],
+            'username': record['username'],
+            'is_deleted': record['is_deleted'] if is_admin else 0
+        } for record in records]
     except ValueError as ve:
         flash(f'日付形式が無効です: {ve}', 'error')
-        records = []  # エラーが発生した場合、空のリストを返す
+        records = [] # エラーが発生した場合、空のリストを返す
     except sqlite3.Error as e:
         flash(f'データベースエラーが発生しました: {e}', 'error')
-        records = []  # エラーが発生した場合、空のリストを返す
+        records = [] # エラーが発生した場合、空のリストを返す
     finally:
         conn.close()
     return render_template('day_records.html', date=date, records=records, is_admin=is_admin)
@@ -421,26 +408,19 @@ def all_records():
         total_records = conn.execute('SELECT COUNT(*) FROM records WHERE is_deleted = 0').fetchone()[0]
         records = conn.execute('''
             SELECT users.username, records.id, records.action,
-                   strftime('%Y/%m/%d %H:%M:%S', records.timestamp) as timestamp,
-                   records.memo, records.likes_count
+            strftime('%Y/%m/%d %H:%M:%S', records.timestamp) as timestamp,
+            records.memo, records.likes_count
             FROM records
             JOIN users ON records.user_id = users.id
             WHERE records.is_deleted = 0
             ORDER BY records.timestamp DESC
             LIMIT ? OFFSET ?
         ''', (per_page, offset)).fetchall()
-    # タイムゾーンを考慮して表示するために、各レコードの時刻に9時間足す
-    for record in records:
-        # タイムスタンプがNoneでないことを確認
-        if record['timestamp']:
-            # タイムスタンプをdatetimeオブジェクトに変換してから9時間足す
-            timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
-            timestamp_utc = pytz.utc.localize(timestamp)
-            timestamp_jst = timestamp_utc.astimezone(pytz.timezone('Asia/Tokyo'))
-
-            record = record._replace(timestamp=timestamp_jst.strftime('%Y-%m-%d %H:%M:%S'))
-
-    total_pages = (total_records + per_page - 1) // per_page
+        # タイムゾーンを考慮して表示（9時間を足す）
+        for record in records:
+            record = dict(record)
+            record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m/%d %H:%M:%S') + timedelta(hours=9)
+        total_pages = (total_records + per_page - 1) // per_page
     return render_template('all_records.html', records=records, page=page, total_pages=total_pages)
 
 @app.route('/delete_record/<int:record_id>', methods=['POST'])
