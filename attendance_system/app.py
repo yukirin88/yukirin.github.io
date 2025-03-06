@@ -145,13 +145,21 @@ def index():
         return redirect(url_for('login'))
     with get_db_connection() as conn:
         records = conn.execute(
-            'SELECT id, action, datetime(timestamp, "localtime") as timestamp, memo, likes_count FROM records WHERE user_id = ? AND is_deleted = 0 ORDER BY timestamp DESC',
+            'SELECT id, action, timestamp, memo, likes_count FROM records WHERE user_id = ? AND is_deleted = 0 ORDER BY timestamp DESC',
             (session['user_id'],)
         ).fetchall()
-        # タイムゾーンを考慮して表示
+
+        # タイムゾーンを考慮して表示するために、各レコードの時刻に9時間足す
         for record in records:
-            record = dict(record)
-            record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S') + timedelta(hours=9)
+            # タイムスタンプがNoneでないことを確認
+            if record['timestamp']:
+                # タイムスタンプをdatetimeオブジェクトに変換してから9時間足す
+                timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
+                timestamp_utc = pytz.utc.localize(timestamp)
+                timestamp_jst = timestamp_utc.astimezone(pytz.timezone('Asia/Tokyo'))
+
+                record = record._replace(timestamp=timestamp_jst.strftime('%Y-%m-%d %H:%M:%S'))
+
     return render_template('index.html', records=records)
 
 @app.route('/like//', methods=['POST'])
@@ -248,10 +256,18 @@ def admin_dashboard():
             JOIN users ON records.user_id = users.id
             ORDER BY records.timestamp DESC
         ''').fetchall()
-        # タイムゾーンを考慮して表示
+
+        # タイムゾーンを考慮して表示するために、各レコードの時刻に9時間足す
         for record in records:
-            record = dict(record)
-            record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S') + timedelta(hours=9)
+            # タイムスタンプがNoneでないことを確認
+            if record['timestamp']:
+                # タイムスタンプをdatetimeオブジェクトに変換してから9時間足す
+                timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
+                timestamp_utc = pytz.utc.localize(timestamp)
+                timestamp_jst = timestamp_utc.astimezone(pytz.timezone('Asia/Tokyo'))
+
+                record = record._replace(timestamp=timestamp_jst.strftime('%Y-%m-%d %H:%M:%S'))
+
         users = conn.execute('SELECT id, username FROM users WHERE is_admin = 0').fetchall()
         form = FlaskForm()  # CSRFトークン用の空のフォームを作成
     return render_template('admin_dashboard.html', records=records, users=users, all_records=records, form=form)
@@ -375,15 +391,17 @@ def day_records(date):
                 ORDER BY timestamp ASC
             ''', (session['user_id'], date))
         records = cursor.fetchall()
+        # タイムゾーンを考慮して表示
+        for record in records:
+            # タイムスタンプがNoneでないことを確認
+            if record['timestamp']:
+                # タイムスタンプをdatetimeオブジェクトに変換してから9時間足す
+                timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
+                timestamp_utc = pytz.utc.localize(timestamp)
+                timestamp_jst = timestamp_utc.astimezone(pytz.timezone('Asia/Tokyo'))
 
-        # タイムスタンプをdatetimeオブジェクトに変換
-        records = [{
-            'action': record['action'],
-            'timestamp': datetime.fromisoformat(record['timestamp'].replace(' ', 'T')) + timedelta(hours=9), # 9時間足す
-            'memo': record['memo'],
-            'username': record['username'],
-            'is_deleted': record['is_deleted'] if is_admin else 0
-        } for record in records]
+                record = record._replace(timestamp=timestamp_jst.strftime('%Y-%m-%d %H:%M:%S'))
+
     except ValueError as ve:
         flash(f'日付形式が無効です: {ve}', 'error')
         records = []  # エラーが発生した場合、空のリストを返す
@@ -411,10 +429,17 @@ def all_records():
             ORDER BY records.timestamp DESC
             LIMIT ? OFFSET ?
         ''', (per_page, offset)).fetchall()
-    # タイムゾーンを考慮して表示
+    # タイムゾーンを考慮して表示するために、各レコードの時刻に9時間足す
     for record in records:
-        record = dict(record)
-        record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S') + timedelta(hours=9)
+        # タイムスタンプがNoneでないことを確認
+        if record['timestamp']:
+            # タイムスタンプをdatetimeオブジェクトに変換してから9時間足す
+            timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
+            timestamp_utc = pytz.utc.localize(timestamp)
+            timestamp_jst = timestamp_utc.astimezone(pytz.timezone('Asia/Tokyo'))
+
+            record = record._replace(timestamp=timestamp_jst.strftime('%Y-%m-%d %H:%M:%S'))
+
     total_pages = (total_records + per_page - 1) // per_page
     return render_template('all_records.html', records=records, page=page, total_pages=total_pages)
 
