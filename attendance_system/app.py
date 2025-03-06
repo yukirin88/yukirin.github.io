@@ -29,8 +29,8 @@ def hash_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 def jst_now():
-    tz = pytz.timezone('Asia/Tokyo')
-    return datetime.now(tz) - timedelta(hours=9)  # 9時間を引く修正
+    tz = pytz.timezone('Asia/Tokyo')  # タイムゾーンを東京に設定
+    return datetime.now(tz)  # 日本標準時で現在の日時を取得
 
 def generate_calendar(year, month):
     cal = calendar.monthcalendar(year, month)
