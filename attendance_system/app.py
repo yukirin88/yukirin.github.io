@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_wtf import FlaskForm
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask import request
 from flask_bootstrap import Bootstrap
 from flask_cors import CORS
 from flask_talisman import Talisman
@@ -13,9 +12,6 @@ import calendar
 import pytz
 
 app = Flask(__name__, template_folder='templates')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///yourdatabase.db'  # SQLiteの場合
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)  # Flask-Migrateの設定
 Bootstrap(app)
 CORS(app)
 Talisman(app, force_https=True)
@@ -143,7 +139,10 @@ def like_record(record_id, from_page):
     elif from_page == 'all_records':
         return redirect(url_for('all_records'))
     else:
-        return redirect(url_for('index'))  # デフォルトはindexへ
+        return redirect(url_for('index')) # デフォルトはindexへ
+
+import calendar
+from datetime import datetime
 
 @app.route('/calendar')
 def calendar_view():
@@ -292,7 +291,7 @@ def record():
     if not action:
         flash('アクションを選択してください。', 'error')
         return redirect(url_for('index'))
-    timestamp = jst_now()  # jst_now()でタイムゾーンawareなdatetimeオブジェクトを取得
+    timestamp = jst_now() # jst_now()でタイムゾーンawareなdatetimeオブジェクトを取得
     with get_db_connection() as conn:
         conn.execute(
             'INSERT INTO records (user_id, action, timestamp, memo, username) VALUES (?, ?, ?, ?, ?)',
@@ -311,6 +310,7 @@ def record():
 
 @app.route('/day_records/<string:date>')
 def day_records(date):
+    # 関数の内容
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
@@ -334,6 +334,7 @@ def day_records(date):
                 ORDER BY timestamp ASC
             ''', (session['user_id'], date)).fetchall()
     
+    # タイムスタンプをdatetimeオブジェクトに変換
     records = [{
         'action': record['action'],
         'timestamp': datetime.fromisoformat(record['timestamp'].replace(' ', 'T')),
@@ -377,11 +378,27 @@ def delete_record(record_id):
         conn.execute(''' 
             UPDATE records
             SET is_deleted = 1
-            WHERE id = ?
-        ''', (record_id,))
+            WHERE id = ? AND user_id = ?
+        ''', (record_id, session['user_id']))
         conn.commit()
+
     flash('記録が削除されました。', 'success')
     return redirect(url_for('index'))
+
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+@admin_required
+def delete_user(user_id):
+    if user_id == session.get('user_id'):
+        flash('自分自身を削除することはできません。', 'error')
+        return redirect(url_for('admin_dashboard'))
+    with get_db_connection() as conn:
+        # ユーザーの記録を削除
+        conn.execute('DELETE FROM records WHERE user_id = ?', (user_id,))
+        # ユーザーを削除
+        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+    flash('ユーザーが削除されました。', 'success')
+    return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, ssl_context=('mycert.pem', 'key.pem'), debug=True)
