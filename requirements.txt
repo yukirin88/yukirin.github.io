@@ -1,4 +1,0 @@
-﻿Flask
-gunicorn
-flask-wtf
-flask-bootstrap
