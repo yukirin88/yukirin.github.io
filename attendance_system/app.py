@@ -98,11 +98,23 @@ def init_db():
             )
         ''')
 
+        # recordsテーブルにlikes_countカラムが存在しない場合は追加
+        try:
+            cursor.execute("ALTER TABLE records ADD COLUMN likes_count INTEGER DEFAULT 0")
+            conn.commit()
+            print("likes_count カラムが追加されました。")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" in str(e):
+                print("likes_count カラムは既に存在します。")
+            else:
+                print(f"エラー: {e}")
+
         conn.commit()
         print("データベースの初期化が完了しました。")
 
     except sqlite3.Error as e:
         print(f"データベースエラー: {e}")
+        conn.rollback()  # エラー発生時はロールバック
     finally:
         conn.close()
 
@@ -119,6 +131,7 @@ def init_db():
             print("管理者アカウントが作成されました。")
     except sqlite3.Error as e:
         print(f"データベースエラー: {e}")
+        conn.rollback()  # エラー発生時はロールバック
     finally:
         conn.close()
 
@@ -328,29 +341,33 @@ def record():
             conn.commit()
     return redirect(url_for('index'))
 
-@app.route('/day_records/')
+@app.route('/day_records/<date>')
 def day_records(date):
     # 関数の内容
     if 'user_id' not in session:
         return redirect(url_for('login'))
     is_admin = session.get('is_admin', False)
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
         if is_admin:
             # 管理者の場合、全ての記録（削除されたものも含む）を取得
-            records = conn.execute('''
+            cursor.execute('''
                 SELECT action, timestamp, memo, username, is_deleted
                 FROM records
                 WHERE DATE(timestamp) = ?
                 ORDER BY timestamp ASC
-            ''', (date,)).fetchall()
+            ''', (date,))
         else:
             # 一般ユーザーの場合、自分の削除されていない記録のみを取得
-            records = conn.execute('''
+            cursor.execute('''
                 SELECT action, timestamp, memo, username
                 FROM records
                 WHERE user_id = ? AND DATE(timestamp) = ? AND is_deleted = 0
                 ORDER BY timestamp ASC
-            ''', (session['user_id'], date)).fetchall()
+            ''', (session['user_id'], date))
+        records = cursor.fetchall()
+
         # タイムスタンプをdatetimeオブジェクトに変換
         records = [{
             'action': record['action'],
@@ -359,6 +376,14 @@ def day_records(date):
             'username': record['username'],
             'is_deleted': record['is_deleted'] if is_admin else 0
         } for record in records]
+    except ValueError as ve:
+        flash(f'日付形式が無効です: {ve}', 'error')
+        records = []  # エラーが発生した場合、空のリストを返す
+    except sqlite3.Error as e:
+        flash(f'データベースエラーが発生しました: {e}', 'error')
+        records = []  # エラーが発生した場合、空のリストを返す
+    finally:
+        conn.close()
     return render_template('day_records.html', date=date, records=records, is_admin=is_admin)
 
 @app.route('/all_records')
@@ -396,20 +421,35 @@ def delete_record(record_id):
         flash('記録が削除されました。', 'success')
     return redirect(url_for('index'))
 
-@app.route('/delete_user/', methods=['POST'])
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
 @admin_required
 def delete_user(user_id):
     if user_id == session.get('user_id'):
         flash('自分自身を削除することはできません。', 'error')
         return redirect(url_for('admin_dashboard'))
-    with get_db_connection() as conn:
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
         # ユーザーの記録を削除
-        conn.execute('DELETE FROM records WHERE user_id = ?', (user_id,))
+        cursor.execute('DELETE FROM records WHERE user_id = ?', (user_id,))
+
         # ユーザーを削除
-        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+
         conn.commit()
         flash('ユーザーが削除されました。', 'success')
+
+    except sqlite3.Error as e:
+        conn.rollback()
+        flash(f'ユーザー削除中にエラーが発生しました: {e}', 'error')
+
+    finally:
+        conn.close()
+
     return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
+    # app.run(host='0.0.0.0', port=10000, ssl_context=('mycert.pem', 'key.pem'), debug=True)
     app.run(host='0.0.0.0', port=10000, debug=True)
