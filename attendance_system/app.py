@@ -187,25 +187,24 @@ from datetime import datetime
 
 @app.route('/calendar')
 def calendar_view():
-    year = int(request.args.get('year', datetime.now(pytz.timezone('Asia/Tokyo')).year))
-    month = int(request.args.get('month', datetime.now(pytz.timezone('Asia/Tokyo')).month))
-    
-    # カレンダーオブジェクトを作成
+    tokyo_tz = pytz.timezone('Asia/Tokyo')  # タイムゾーンを東京に設定
+    now = datetime.now(tokyo_tz)  # 現在日時を東京時間で取得
+
+    year = int(request.args.get('year', now.year))
+    month = int(request.args.get('month', now.month))
+
     cal = calendar.monthcalendar(year, month)
-    
-    # 前月と次月の計算
+
     prev_month = month - 1 if month > 1 else 12
     prev_year = year if month > 1 else year - 1
     next_month = month + 1 if month < 12 else 1
     next_year = year if month < 12 else year + 1
-    
-    # 前月と翌月のカレンダーを生成
+
     prev_cal = calendar.monthcalendar(prev_year, prev_month)
     next_cal = calendar.monthcalendar(next_year, next_month)
-    
-    # 現在の日付を東京のタイムゾーンで取得
-    today = datetime.now(pytz.timezone('Asia/Tokyo')).date()
-    
+
+    today = now.date()  # 今日の日付を取得 (時刻情報なし)
+
     return render_template('calendar.html', year=year, month=month, cal=cal,
                            prev_cal=prev_cal, prev_month=prev_month, prev_year=prev_year,
                            next_cal=next_cal, next_month=next_month, next_year=next_year,
