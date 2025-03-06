@@ -401,4 +401,4 @@ def delete_user(user_id):
     return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, ssl_context=('mycert.pem', 'key.pem'), debug=True)
+    app.run(host='0.0.0.0', port=10000, ssl_context=('mycert.pem', 'key.pem'), debug=True)
