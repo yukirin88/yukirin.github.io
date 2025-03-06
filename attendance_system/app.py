@@ -148,6 +148,10 @@ def index():
             'SELECT id, action, datetime(timestamp, "localtime") as timestamp, memo, likes_count FROM records WHERE user_id = ? AND is_deleted = 0 ORDER BY timestamp DESC',
             (session['user_id'],)
         ).fetchall()
+        # タイムゾーンを考慮して表示
+        for record in records:
+            record = dict(record)
+            record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S') + timedelta(hours=9)
     return render_template('index.html', records=records)
 
 @app.route('/like//', methods=['POST'])
@@ -244,6 +248,10 @@ def admin_dashboard():
             JOIN users ON records.user_id = users.id
             ORDER BY records.timestamp DESC
         ''').fetchall()
+        # タイムゾーンを考慮して表示
+        for record in records:
+            record = dict(record)
+            record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S') + timedelta(hours=9)
         users = conn.execute('SELECT id, username FROM users WHERE is_admin = 0').fetchall()
         form = FlaskForm()  # CSRFトークン用の空のフォームを作成
     return render_template('admin_dashboard.html', records=records, users=users, all_records=records, form=form)
@@ -371,7 +379,7 @@ def day_records(date):
         # タイムスタンプをdatetimeオブジェクトに変換
         records = [{
             'action': record['action'],
-            'timestamp': datetime.fromisoformat(record['timestamp'].replace(' ', 'T')),
+            'timestamp': datetime.fromisoformat(record['timestamp'].replace(' ', 'T')) + timedelta(hours=9), # 9時間足す
             'memo': record['memo'],
             'username': record['username'],
             'is_deleted': record['is_deleted'] if is_admin else 0
@@ -403,6 +411,10 @@ def all_records():
             ORDER BY records.timestamp DESC
             LIMIT ? OFFSET ?
         ''', (per_page, offset)).fetchall()
+    # タイムゾーンを考慮して表示
+    for record in records:
+        record = dict(record)
+        record['timestamp'] = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S') + timedelta(hours=9)
     total_pages = (total_records + per_page - 1) // per_page
     return render_template('all_records.html', records=records, page=page, total_pages=total_pages)
 
