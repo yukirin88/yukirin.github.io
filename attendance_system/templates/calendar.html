@@ -4,10 +4,11 @@
 {% block content %}
 <div class="container">
   <h2>{{ year }}年 {{ month }}月</h2>
-  
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
   <table class="table table-bordered">
     <thead>
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
       <tr>
         <th>日</th>
         <th>月</th>
@@ -23,7 +24,9 @@
         <tr>
           {% for day in week %}
             {% if day != 0 %}
-              <td class="{% if day == today.day and year == today.year and month == today.month %}current-date{% endif %}">
+              {# 今日の日付と完全一致したらハイライト #}
+              {% set is_today = (year == today.year and month == today.month and day == today.day) %}
+              <td class="{% if is_today %}current-date{% endif %}">
                 <a href="{{ url_for('day_records', date='%04d-%02d-%02d'|format(year, month, day)) }}">
                   {{ day }}
                 </a>
@@ -44,6 +47,4 @@
   </div>
 
 </div>
-
 {% endblock %}
-
