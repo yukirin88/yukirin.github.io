@@ -1,0 +1,76 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}睡眠記録{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>睡眠記録</h1>
+    <a href="{{ url_for('all_records') }}" class="btn btn-info btn-block mb-2">みんなの記録</a>
+    <a href="{{ url_for('calendar_view') }}" class="btn btn-info btn-block mb-2">カレンダー</a>
+    <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-block">ログアウト</a>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('record') }}" method="post" class="mb-3">
+        <div class="form-group">
+            <label for="action">行動:</label>
+            <select name="action" id="action" class="form-control">
+                <option value="wake_up">起床</option>
+                <option value="sleep">就寝</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="memo">メモ:</label>
+            <textarea name="memo" id="memo" class="form-control"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">記録</button>
+    </form>
+
+    <h2>今日の記録</h2>
+    {% if records %}
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>時間</th>
+                    <th>行動</th>
+                    <th>メモ</th>
+                    <th>反応</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                    <tr>
+                        <td>{{ record.timestamp }}</td>
+                        <td>
+                            {% if record.action == 'wake_up' %}
+                                起床
+                            {% elif record.action == 'sleep' %}
+                                就寝
+                            {% else %}
+                                {{ record.action }}
+                            {% endif %}
+                        </td>
+                        <td>{{ record.memo if record.memo else '---' }}</td>
+                        <td>
+                            <form action="{{ url_for('like_record', record_id=record.id, from_page='index') }}" method="post">
+                                <button type="submit" class="btn btn-sm btn-primary">👍 ({{ record.likes_count }})</button>
+                            </form>
+                        </td>
+                        <td>
+                            <form action="{{ url_for('delete_record', record_id=record.id) }}" method="post">
+                                <button type="submit" class="btn btn-danger btn-sm">削除</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>今日の記録はありません。</p>
+    {% endif %}
+</div>
+{% endblock %}
