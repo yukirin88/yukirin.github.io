@@ -1,24 +1,24 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_wtf import FlaskForm
-from flask import request
 from flask_bootstrap import Bootstrap
 from flask_cors import CORS
 from flask_talisman import Talisman
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 import sqlite3
 import hashlib
 import calendar
 import pytz
-import os
+import os  # osモジュールをインポート
 
 app = Flask(__name__, template_folder='templates')
 Bootstrap(app)
 CORS(app)
-Talisman(app, force_https=True)
+# Talisman(app, force_https=True)  # HTTPSを強制する場合はコメントアウトを解除
 app.secret_key = 'your_secret_key_here'
 
-DATABASE_PATH = os.environ.get('DATABASE_URL', 'attendance.db')
+# データベースファイルのパス
+DATABASE_PATH = os.environ.get('DATABASE_URL', 'attendance.db')  # 環境変数からパスを取得。なければ'attendance.db'を使用
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE_PATH)
@@ -30,7 +30,7 @@ def hash_password(password):
 
 def jst_now():
     tz = pytz.timezone('Asia/Tokyo')
-    return datetime.now(tz)
+    return datetime.now(tz) - timedelta(hours=9)  # 9時間を引く修正
 
 def generate_calendar(year, month):
     cal = calendar.monthcalendar(year, month)
@@ -46,12 +46,14 @@ def admin_required(f):
     decorated_function.__name__ = f.__name__
     return decorated_function
 
+# データベース初期化関数
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        cursor.execute('''
+        # usersテーブルが存在しない場合は作成
+        cursor.execute(''' 
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY,
                 username TEXT UNIQUE,
@@ -60,7 +62,8 @@ def init_db():
             )
         ''')
 
-        cursor.execute('''
+        # recordsテーブルが存在しない場合は作成
+        cursor.execute(''' 
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER,
@@ -69,11 +72,12 @@ def init_db():
                 memo TEXT,
                 username TEXT,
                 is_deleted INTEGER DEFAULT 0,
-                likes_count INTEGER DEFAULT 0
+                likes_count INTEGER DEFAULT 0  -- likes_countカラムを追加
             )
         ''')
 
-        cursor.execute('''
+        # user_action_logsテーブルが存在しない場合は作成
+        cursor.execute(''' 
             CREATE TABLE IF NOT EXISTS user_action_logs (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER,
@@ -82,7 +86,8 @@ def init_db():
             )
         ''')
 
-        cursor.execute('''
+        # likesテーブルが存在しない場合は作成
+        cursor.execute(''' 
             CREATE TABLE IF NOT EXISTS likes (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER,
@@ -93,6 +98,7 @@ def init_db():
             )
         ''')
 
+        # recordsテーブルにlikes_countカラムが存在しない場合は追加
         try:
             cursor.execute("ALTER TABLE records ADD COLUMN likes_count INTEGER DEFAULT 0")
             conn.commit()
@@ -108,9 +114,11 @@ def init_db():
 
     except sqlite3.Error as e:
         print(f"データベースエラー: {e}")
+        conn.rollback()  # エラー発生時はロールバック
     finally:
         conn.close()
 
+    # 管理者アカウントが存在しない場合のみ作成
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -123,9 +131,11 @@ def init_db():
             print("管理者アカウントが作成されました。")
     except sqlite3.Error as e:
         print(f"データベースエラー: {e}")
+        conn.rollback()  # エラー発生時はロールバック
     finally:
         conn.close()
 
+# アプリケーションの起動前にデータベースを初期化
 with app.app_context():
     init_db()
 
@@ -145,16 +155,19 @@ def like_record(record_id, from_page):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     with get_db_connection() as conn:
-        existing_like = conn.execute('''
-            SELECT * FROM likes WHERE user_id = ? AND record_id = ?
+        # 既に「いいね」されているか確認
+        existing_like = conn.execute(''' 
+            SELECT * FROM likes WHERE user_id = ? AND record_id = ? 
         ''', (session['user_id'], record_id)).fetchone()
         if not existing_like:
-            conn.execute('''
-                INSERT INTO likes (user_id, record_id, timestamp)
-                VALUES (?, ?, ?)
+            # いいねされていない場合は、新規に「いいね」を記録
+            conn.execute(''' 
+                INSERT INTO likes (user_id, record_id, timestamp) 
+                VALUES (?, ?, ?) 
             ''', (session['user_id'], record_id, jst_now()))
-            conn.execute('''
-                UPDATE records SET likes_count = likes_count + 1 WHERE id = ?
+            # recordsテーブルのlikes_countを増やす
+            conn.execute(''' 
+                UPDATE records SET likes_count = likes_count + 1 WHERE id = ? 
             ''', (record_id,))
             conn.commit()
             flash('いいねしました！', 'success')
@@ -165,7 +178,7 @@ def like_record(record_id, from_page):
     elif from_page == 'all_records':
         return redirect(url_for('all_records'))
     else:
-        return redirect(url_for('index'))
+        return redirect(url_for('index'))  # デフォルトはindexへ
 
 import calendar
 from datetime import datetime
@@ -174,11 +187,14 @@ from datetime import datetime
 def calendar_view():
     year = int(request.args.get('year', datetime.now().year))
     month = int(request.args.get('month', datetime.now().month))
+    # カレンダーオブジェクトを作成
     cal = calendar.monthcalendar(year, month)
+    # 前月と次月の計算
     prev_month = month - 1 if month > 1 else 12
     prev_year = year if month > 1 else year - 1
     next_month = month + 1 if month < 12 else 1
     next_year = year if month < 12 else year + 1
+    # 前月と翌月のカレンダーを生成
     prev_cal = calendar.monthcalendar(prev_year, prev_month)
     next_cal = calendar.monthcalendar(next_year, next_month)
     today = datetime.now()
@@ -201,10 +217,12 @@ def login():
                 session['user_id'] = user['id']
                 session['username'] = user['username']
                 session['is_admin'] = user['is_admin']
+                # ログイン時にログを記録
                 with get_db_connection() as conn:
                     conn.execute('INSERT INTO user_action_logs (user_id, action, timestamp) VALUES (?, ?, ?)',
                                  (user['id'], 'ログイン', jst_now().strftime('%Y-%m-%d %H:%M:%S')))
                     conn.commit()
+                # 管理者なら管理画面へ
                 return redirect(url_for('admin_dashboard' if user['is_admin'] else 'index'))
             else:
                 flash('ユーザー名またはパスワードが間違っています。', 'error')
@@ -227,7 +245,7 @@ def admin_dashboard():
             ORDER BY records.timestamp DESC
         ''').fetchall()
         users = conn.execute('SELECT id, username FROM users WHERE is_admin = 0').fetchall()
-        form = FlaskForm()
+        form = FlaskForm()  # CSRFトークン用の空のフォームを作成
     return render_template('admin_dashboard.html', records=records, users=users, all_records=records, form=form)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -306,7 +324,7 @@ def record():
     if not action:
         flash('アクションを選択してください。', 'error')
         return redirect(url_for('index'))
-    timestamp = jst_now()
+    timestamp = jst_now()  # jst_now()でタイムゾーンawareなdatetimeオブジェクトを取得
     with get_db_connection() as conn:
         conn.execute(
             'INSERT INTO records (user_id, action, timestamp, memo, username) VALUES (?, ?, ?, ?, ?)',
@@ -314,6 +332,7 @@ def record():
         )
         conn.commit()
         flash('記録が保存されました。', 'success')
+        # アクションログを記録
         with get_db_connection() as conn:
             conn.execute(
                 'INSERT INTO user_action_logs (user_id, action, timestamp) VALUES (?, ?, ?)',
@@ -324,6 +343,7 @@ def record():
 
 @app.route('/day_records/<date>')
 def day_records(date):
+    # 関数の内容
     if 'user_id' not in session:
         return redirect(url_for('login'))
     is_admin = session.get('is_admin', False)
@@ -331,6 +351,7 @@ def day_records(date):
     cursor = conn.cursor()
     try:
         if is_admin:
+            # 管理者の場合、全ての記録（削除されたものも含む）を取得
             cursor.execute('''
                 SELECT action, timestamp, memo, username, is_deleted
                 FROM records
@@ -338,6 +359,7 @@ def day_records(date):
                 ORDER BY timestamp ASC
             ''', (date,))
         else:
+            # 一般ユーザーの場合、自分の削除されていない記録のみを取得
             cursor.execute('''
                 SELECT action, timestamp, memo, username
                 FROM records
@@ -346,6 +368,7 @@ def day_records(date):
             ''', (session['user_id'], date))
         records = cursor.fetchall()
 
+        # タイムスタンプをdatetimeオブジェクトに変換
         records = [{
             'action': record['action'],
             'timestamp': datetime.fromisoformat(record['timestamp'].replace(' ', 'T')),
@@ -355,10 +378,10 @@ def day_records(date):
         } for record in records]
     except ValueError as ve:
         flash(f'日付形式が無効です: {ve}', 'error')
-        records = []
+        records = []  # エラーが発生した場合、空のリストを返す
     except sqlite3.Error as e:
         flash(f'データベースエラーが発生しました: {e}', 'error')
-        records = []
+        records = []  # エラーが発生した場合、空のリストを返す
     finally:
         conn.close()
     return render_template('day_records.html', date=date, records=records, is_admin=is_admin)
@@ -387,6 +410,7 @@ def all_records():
 def delete_record(record_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    # 記録を論理削除
     with get_db_connection() as conn:
         conn.execute('''
             UPDATE records
@@ -403,19 +427,29 @@ def delete_user(user_id):
     if user_id == session.get('user_id'):
         flash('自分自身を削除することはできません。', 'error')
         return redirect(url_for('admin_dashboard'))
+
     conn = get_db_connection()
     cursor = conn.cursor()
+
     try:
+        # ユーザーの記録を削除
         cursor.execute('DELETE FROM records WHERE user_id = ?', (user_id,))
+
+        # ユーザーを削除
         cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+
         conn.commit()
         flash('ユーザーが削除されました。', 'success')
+
     except sqlite3.Error as e:
         conn.rollback()
         flash(f'ユーザー削除中にエラーが発生しました: {e}', 'error')
+
     finally:
         conn.close()
+
     return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
+    # app.run(host='0.0.0.0', port=10000, ssl_context=('mycert.pem', 'key.pem'), debug=True)
     app.run(host='0.0.0.0', port=10000, debug=True)
