@@ -53,7 +53,7 @@ def init_db():
 
     try:
         # usersテーブルが存在しない場合は作成
-        cursor.execute(''' 
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY,
                 username TEXT UNIQUE,
@@ -63,7 +63,7 @@ def init_db():
         ''')
 
         # recordsテーブルが存在しない場合は作成
-        cursor.execute(''' 
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER,
@@ -77,7 +77,7 @@ def init_db():
         ''')
 
         # user_action_logsテーブルが存在しない場合は作成
-        cursor.execute(''' 
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_action_logs (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER,
@@ -87,7 +87,7 @@ def init_db():
         ''')
 
         # likesテーブルが存在しない場合は作成
-        cursor.execute(''' 
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS likes (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER,
@@ -156,18 +156,18 @@ def like_record(record_id, from_page):
         return redirect(url_for('login'))
     with get_db_connection() as conn:
         # 既に「いいね」されているか確認
-        existing_like = conn.execute(''' 
-            SELECT * FROM likes WHERE user_id = ? AND record_id = ? 
+        existing_like = conn.execute('''
+            SELECT * FROM likes WHERE user_id = ? AND record_id = ?
         ''', (session['user_id'], record_id)).fetchone()
         if not existing_like:
             # いいねされていない場合は、新規に「いいね」を記録
-            conn.execute(''' 
-                INSERT INTO likes (user_id, record_id, timestamp) 
-                VALUES (?, ?, ?) 
+            conn.execute('''
+                INSERT INTO likes (user_id, record_id, timestamp)
+                VALUES (?, ?, ?)
             ''', (session['user_id'], record_id, jst_now()))
             # recordsテーブルのlikes_countを増やす
-            conn.execute(''' 
-                UPDATE records SET likes_count = likes_count + 1 WHERE id = ? 
+            conn.execute('''
+                UPDATE records SET likes_count = likes_count + 1 WHERE id = ?
             ''', (record_id,))
             conn.commit()
             flash('いいねしました！', 'success')
@@ -406,19 +406,26 @@ def all_records():
     total_pages = (total_records + per_page - 1) // per_page
     return render_template('all_records.html', records=records, page=page, total_pages=total_pages)
 
-@app.route('/delete_record/', methods=['POST'])
+@app.route('/delete_record/<int:record_id>', methods=['POST'])
 def delete_record(record_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    # 記録を論理削除
-    with get_db_connection() as conn:
-        conn.execute('''
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # 記録を論理削除
+        cursor.execute('''
             UPDATE records
             SET is_deleted = 1
             WHERE id = ? AND user_id = ?
         ''', (record_id, session['user_id']))
         conn.commit()
         flash('記録が削除されました。', 'success')
+    except sqlite3.Error as e:
+        conn.rollback()
+        flash(f'記録の削除中にエラーが発生しました: {e}', 'error')
+    finally:
+        conn.close()
     return redirect(url_for('index'))
 
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
