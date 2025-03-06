@@ -1,0 +1,48 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}{{ date }} の記録{% endblock %}
+{% block content %}
+<div class="container">
+    <h1>{{ date }} 記録</h1>
+    {% if records %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>名前</th>
+                    <th>時間</th>
+                    <th>行動</th>
+                    <th>メモ</th>
+                    
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                    <tr {% if record.is_deleted %}class="text-muted"{% endif %}>
+                        <td>{{ record.username }}</td>
+                        <td>{{ record.timestamp }}</td>
+                        <td>
+                            {% if record.action == 'wake_up' %}
+                                起床
+                            {% elif record.action == 'sleep' %}
+                                就寝
+                            {% else %}
+                                {{ record.action }}
+                            {% endif %}
+                        </td>
+                        <td>{{ record.memo if record.memo else '---' }}</td>
+                        <td>
+                            {% if is_admin %}
+                                {% if record.is_deleted %}削除済み{% else %}有効{% endif %}
+                            {% else %}
+                                &nbsp;
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>この日に記録はありません。</p>
+    {% endif %}
+    <a href="{{ url_for('calendar_view') }}" class="btn btn-primary">カレンダーに戻る</a>
+</div>
+{% endblock %}
