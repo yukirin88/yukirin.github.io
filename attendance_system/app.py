@@ -401,4 +401,5 @@ def delete_user(user_id):
     return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000, debug=False)
+    gunicorn -w 4 -b 0.0.0.0:10000 attendance_system.app:app
+
