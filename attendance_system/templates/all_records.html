@@ -1,0 +1,63 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}みんなの記録{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>みんなの睡眠記録</h1>
+    <div class="header-controls">
+        <a href="{{ url_for('index') }}" class="btn btn-primary">
+            <i class="fas fa-home"></i> ホームに戻る
+        </a>
+    </div>
+
+    {% if records %}
+    <div class="record-list">
+        <table class="table table-hover">
+            <thead class="thead-light">
+                <tr>
+                    <th>ユーザー名</th>
+                    <th>日付</th>
+                    <th>時間</th>
+                    <th>行動</th>
+                    <th>メモ</th>
+                    <th>いいね</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>{{ record.username }}</td>
+                    <td class="date-column">
+                        {{ record.formatted_date }}
+                    </td>
+                    <td class="time-column">
+                        {{ record.formatted_time }}
+                    </td>
+                    <td>
+                        {% if record.action == 'wake_up' %}
+                        <span class="badge badge-success">起床</span>
+                        {% elif record.action == 'sleep' %}
+                        <span class="badge badge-primary">就寝</span>
+                        {% else %}
+                        <span class="badge badge-secondary">{{ record.action }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ record.memo if record.memo else '---' }}</td>
+                    <td>
+                        <form action="{{ url_for('like_record', record_id=record.id) }}" method="post">
+                            <button type="submit" class="btn btn-sm btn-like">
+                                <i class="fas fa-thumbs-up"></i>
+                                <span class="count">{{ record.likes_count }}</span>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">表示できる記録がありません</div>
+    {% endif %}
+</div>
+{% endblock %}

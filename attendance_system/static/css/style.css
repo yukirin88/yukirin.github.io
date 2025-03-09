@@ -1,0 +1,103 @@
+/* デフォルトスタイル（PC向け） */
+.container {
+    max-width: 1200px;
+    padding: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    background-color: #f2f2f2;
+}
+
+/* カレンダースタイル */
+.calendar-container {
+    display: flex;
+    justify-content: space-between;
+}
+
+.calendar {
+    width: 30%; /* 各カレンダーの幅を設定 */
+    background-color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.current-date {
+    background-color: #ffeb3b; /* 今日の日付をハイライト */
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    body {
+      font-size: 14px; /* スマートフォン用のベースフォントサイズを小さくする */
+    }
+    
+    h1 {
+      font-size: 1.8em; /* 見出しのサイズも調整 */
+    }
+    
+    h2 {
+      font-size: 1.5em;
+    }
+    
+    .table th, .table td {
+      padding: 5px; /* テーブルのパディングを小さくして、より多くの情報を表示 */
+      font-size: 0.9em; /* テーブル内のフォントサイズをさらに小さく */
+    }
+    
+    .btn {
+      font-size: 0.9em; /* ボタンのフォントサイズも調整 */
+      padding: 5px 10px; /* ボタンのパディングも小さく */
+    }
+  }
+  
+  .pagination a {
+    display: block;
+    padding: 8px 16px;
+    text-decoration: none;
+    border: 1px solid #ddd;
+    color: black;
+  }
+  
+  .pagination a.active {
+    background-color: #4CAF50;
+    color: white;
+    border: 1px solid #4CAF50;
+  }
+  
+  .pagination a:hover:not(.active) {
+    background-color: #ddd;
+  }
+  .date-time-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.date-column {
+    min-width: 120px;
+    font-weight: 500;
+    color: #666;
+}
+.time-column {
+    min-width: 100px;
+    font-family: monospace;
+    color: #007bff;
+}
+.btn-like {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+.btn-like:hover {
+    background: #007bff;
+    color: white;
+}
