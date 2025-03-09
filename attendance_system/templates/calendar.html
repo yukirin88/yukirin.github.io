@@ -1,0 +1,83 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}カレンダー{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>{{ year }}年{{ month }}月</h1>
+    
+    <div class="calendar-controls mb-4">
+        <a href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}" 
+           class="btn btn-outline-primary">
+            &lt; 前月
+        </a>
+        <a href="{{ url_for('calendar_view', year=next_year, month=next_month) }}" 
+           class="btn btn-outline-primary">
+            次月 &gt;
+        </a>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">ホームに戻る</a>
+    </div>
+
+    <div class="calendar-grid">
+        <div class="calendar-header">
+            {% for day in ['月', '火', '水', '木', '金', '土', '日'] %}
+                <div class="calendar-day-header">{{ day }}</div>
+            {% endfor %}
+        </div>
+        
+        {% for week in cal %}
+            <div class="calendar-week">
+                {% for day in week %}
+                    {% if day != 0 %}
+                        {% set current_date = convert_to_jst(day) %}
+                        <a href="{{ url_for('day_records', date=current_date) }}"
+                           class="calendar-day {% if day == today.day and month == today.month and year == today.year %}today{% endif %}">
+                            {{ day }}
+                        </a>
+                    {% else %}
+                        <div class="calendar-day empty"></div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    background-color: #e9ecef;
+    padding: 2px;
+}
+
+.calendar-day-header {
+    background-color: #007bff;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.calendar-day {
+    background-color: white;
+    min-height: 100px;
+    padding: 5px;
+    border: 1px solid #dee2e6;
+    position: relative;
+}
+
+.calendar-day.today {
+    background-color: #e3f2fd;
+}
+
+.calendar-day a {
+    text-decoration: none;
+    color: #333;
+}
+
+.calendar-day:hover {
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}
