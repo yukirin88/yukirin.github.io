@@ -1,0 +1,64 @@
+{% extends "bootstrap/base.html" %}
+{% block title %}みんなの記録{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">みんなの睡眠記録</h1>
+    <a href="{{ url_for('index') }}" class="btn btn-primary mb-3">ホームに戻る</a>
+
+    {% if records %}
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>ユーザー名</th>
+                        <th>日時</th>
+                        <th>行動</th>
+                        <th>メモ</th>
+                        <th>いいね</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                        <tr>
+                            <td>{{ record.username }}</td>
+                            <td>{{ record.formatted_time }}</td>
+                            <td>
+                                {% if record.action == 'wake_up' %}
+                                    <span class="badge badge-success">起床</span>
+                                {% elif record.action == 'sleep' %}
+                                    <span class="badge badge-primary">就寝</span>
+                                {% else %}
+                                    {{ record.action }}
+                                {% endif %}
+                            </td>
+                            <td>{{ record.memo if record.memo else '---' }}</td>
+                            <td>
+                                <form action="{{ url_for('like_record', record_id=record.id) }}?from_page=all_records" method="post">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        👍 {{ record.likes_count }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="ページネーション">
+            <ul class="pagination justify-content-center">
+                {% for p in range(1, total_pages + 1) %}
+                    <li class="page-item {% if p == page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('all_records', page=p) }}">
+                            {{ p }}
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </nav>
+    {% else %}
+        <div class="alert alert-info">表示できる記録がありません</div>
+    {% endif %}
+</div>
+{% endblock %}
